@@ -34,3 +34,20 @@ def test_undersized_block_raises():
 def test_plan_endpoint_rejects_undersized_block(client):
     r = client.post("/api/plan", json={"block": "10.80.0.0/26"})
     assert r.status_code == 400
+
+
+@pytest.mark.parametrize("vlan", [
+    {"id": 10, "name": "KIOSK"},
+    {"name": "KIOSK", "hosts": 10},
+    {"id": 10, "hosts": 10},
+    {"id": 10, "name": "KIOSK", "hosts": -1},
+    {"id": 10, "name": "KIOSK", "hosts": "many"},
+])
+def test_plan_endpoint_rejects_bad_vlan(client, vlan):
+    assert client.post("/api/plan", json={"vlans": [vlan]}).status_code == 422
+
+
+def test_plan_endpoint_custom_vlans(client):
+    r = client.post("/api/plan", json={"vlans": [{"id": 10, "name": "KIOSK", "hosts": 10}]})
+    assert r.status_code == 200
+    assert [row["network"] for row in r.json()] == ["10.80.0.0"]

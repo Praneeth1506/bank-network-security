@@ -38,7 +38,7 @@ Allocates subnets largest-first from `block`, sizing each VLAN for
 |-------|------|---------|
 | `block` | string, CIDR | `"10.80.0.0/24"` |
 | `growth` | number | `1.0` (100% growth) |
-| `vlans` | array of `{"id": int, "name": str, "hosts": int}` | the five lab VLANs (10 KIOSK, 20 TELLER, 30 MANAGER, 40 SERVER, 99 MGMT) |
+| `vlans` | array of `{"id": int, "name": str, "hosts": int ≥ 0}`, all three fields required | the five lab VLANs (10 KIOSK, 20 TELLER, 30 MANAGER, 40 SERVER, 99 MGMT) |
 
 **200**: an array with one row per VLAN, largest block first. Request `{}`;
 the first of 5 rows is shown:
@@ -68,8 +68,22 @@ the first of 5 rows is shown:
 |------|------|---------|
 | 400 | Block too small | `{"block": "10.80.0.0/26"}` → `{"detail": "10.80.0.0/26 is too small for VLAN 30"}` |
 | 400 | Block isn't a network | `{"block": "nonsense"}` → `{"detail": "'nonsense' does not appear to be an IPv4 or IPv6 network"}` |
-| 422 | Wrong types (e.g. `growth: "x"`) | FastAPI validation error |
-| 500 | A VLAN object is missing `id`, `name` or `hosts` | plain-text `Internal Server Error` (known gap: validate on the client) |
+| 422 | A VLAN is missing `id`, `name` or `hosts`, `hosts` is negative or not an integer, or `growth` is not a number | see below |
+
+422 example, request `{"vlans": [{"id": 10, "name": "KIOSK"}]}`:
+
+```json
+{
+  "detail": [
+    {
+      "type": "missing",
+      "loc": ["body", "vlans", 0, "hosts"],
+      "msg": "Field required",
+      "input": {"id": 10, "name": "KIOSK"}
+    }
+  ]
+}
+```
 
 ---
 
@@ -82,10 +96,10 @@ packet. Matching is first-match, as on IOS. Logic lives in `acl.py`.
 
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
-| `src` | string, IPv4 | yes | Source host. `0.0.0.0` is treated as a DHCP Discover on the kiosk VLAN |
-| `dst` | string, IPv4 | yes | Destination host |
-| `proto` | string | yes | `tcp`, `udp`, `icmp` or `icmp-reply` |
-| `port` | int or null | no | Destination port for tcp/udp |
+| `src` | string, dotted IPv4 address | yes | Source host. `0.0.0.0` is treated as a DHCP Discover on the kiosk VLAN |
+| `dst` | string, dotted IPv4 address | yes | Destination host |
+| `proto` | string | yes | Exactly `tcp`, `udp`, `icmp` or `icmp-reply` |
+| `port` | int 0–65535 or null | no, default `null` | Destination port for tcp/udp |
 | `established` | bool | no, default `false` | Set for TCP return traffic |
 
 **200**, request `{"src": "10.80.0.5", "dst": "10.80.0.74", "proto": "tcp", "port": 80}`:
@@ -129,8 +143,22 @@ and a `note` is added. Request `{"src": "10.80.0.66", "dst": "10.80.0.34", "prot
 
 | Code | When |
 |------|------|
-| 422 | `src`, `dst` or `proto` missing, or wrong type |
-| 500 | `src` or `dst` is not a valid IPv4 address (e.g. `"kiosk"`): plain-text `Internal Server Error` (known gap: validate on the client) |
+| 422 | `src`, `dst` or `proto` missing; `src`/`dst` not an IPv4 address (e.g. `"kiosk"`, `"10.80.0.256"`, `"::1"`); `proto` not one of the four values; `port` outside 0–65535 |
+
+422 example, request `{"src": "kiosk", "dst": "10.80.0.74", "proto": "tcp", "port": 80}`:
+
+```json
+{
+  "detail": [
+    {
+      "type": "ip_v4_address",
+      "loc": ["body", "src"],
+      "msg": "Input is not a valid IPv4 address",
+      "input": "kiosk"
+    }
+  ]
+}
+```
 
 ---
 
@@ -174,9 +202,10 @@ Adds one test row.
 | `source` | string | yes |
 | `destination` | string | yes |
 | `test` | string | yes |
-| `expected` | string | yes |
-| `observed` | string | no, default `""` |
-| `screenshot` | string | no, default `""` |
+| `expected` | `"Allowed"` or `"Blocked"` (exact case) | yes |
+
+Any other fields (including `id`, `observed`, `screenshot`) are ignored; new
+rows always start with `observed` and `screenshot` set to `""`.
 
 **200**: the stored row with its new `id`. Request
 `{"source": "KIOSK1", "destination": "SRV1", "test": "ping 10.80.0.74", "expected": "Blocked"}`:
@@ -197,7 +226,23 @@ Adds one test row.
 
 | Code | When |
 |------|------|
-| 500 | A required field is missing: plain-text `Internal Server Error`, not 422 (known gap: validate on the client) |
+| 422 | A required field is missing, or `expected` is not `"Allowed"` / `"Blocked"` |
+
+422 example, request with `"expected": "Maybe"`:
+
+```json
+{
+  "detail": [
+    {
+      "type": "literal_error",
+      "loc": ["body", "expected"],
+      "msg": "Input should be 'Allowed' or 'Blocked'",
+      "input": "Maybe",
+      "ctx": {"expected": "'Allowed' or 'Blocked'"}
+    }
+  ]
+}
+```
 
 ---
 
@@ -209,7 +254,7 @@ Records the observed result. **Parameters go in the query string, not a JSON bod
 |-------|----|------|----------|
 | `id` | path | int | yes |
 | `observed` | query | string | yes (e.g. `Allowed` / `Blocked`) |
-| `screenshot` | query | string | no, default `""`; **omitting it clears any existing value** |
+| `screenshot` | query | string | no. Omit it to keep the stored value; send `screenshot=` (empty) to clear it |
 
 **200**: the updated row. Request `PATCH /api/tests/1?observed=Blocked&screenshot=t4.png`:
 
@@ -218,6 +263,20 @@ Records the observed result. **Parameters go in the query string, not a JSON bod
   "test": "ping 10.80.0.74",
   "id": 1,
   "observed": "Blocked",
+  "destination": "SRV1",
+  "expected": "Blocked",
+  "source": "KIOSK1",
+  "screenshot": "t4.png"
+}
+```
+
+Then `PATCH /api/tests/1?observed=Allowed` (no `screenshot`) keeps it:
+
+```json
+{
+  "test": "ping 10.80.0.74",
+  "id": 1,
+  "observed": "Allowed",
   "destination": "SRV1",
   "expected": "Blocked",
   "source": "KIOSK1",
@@ -262,10 +321,15 @@ Second call:
 
 All rows as CSV with a header row. Fields containing commas are quoted.
 
-**200**: `Content-Type: text/plain; charset=utf-8`. There is **no**
-`Content-Disposition` header, so to download it as a file use
-`<a href="http://localhost:8000/api/tests/export.csv" download="tests.csv">`
-or save the fetched text as a Blob. Excerpt after seeding and patching row 1:
+**200**
+
+```
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: attachment; filename="banknet_tests.csv"
+```
+
+A plain `<a href="http://localhost:8000/api/tests/export.csv">` link downloads it
+as `banknet_tests.csv`. Excerpt after seeding and patching row 1:
 
 ```
 id,source,destination,test,expected,observed,screenshot

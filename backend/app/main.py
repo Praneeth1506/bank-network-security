@@ -2,11 +2,13 @@ import csv
 import io
 import os
 from contextlib import asynccontextmanager
+from ipaddress import IPv4Address
+from typing import Literal
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlmodel import Session, SQLModel, create_engine, func, select
 
 from .acl import check
@@ -37,24 +39,37 @@ DEFAULT_VLANS = [
 ]
 
 
+class VlanIn(BaseModel):
+    id: int
+    name: str
+    hosts: int = Field(ge=0)
+
+
 class PlanIn(BaseModel):
     block: str = "10.80.0.0/24"
     growth: float = 1.0
-    vlans: list[dict] = DEFAULT_VLANS
+    vlans: list[VlanIn] = [VlanIn(**v) for v in DEFAULT_VLANS]
 
 
 class FlowIn(BaseModel):
-    src: str
-    dst: str
-    proto: str          # tcp | udp | icmp | icmp-reply
-    port: int | None = None
+    src: IPv4Address
+    dst: IPv4Address
+    proto: Literal["tcp", "udp", "icmp", "icmp-reply"]
+    port: int | None = Field(default=None, ge=0, le=65535)
     established: bool = False
+
+
+class TestCreate(BaseModel):
+    source: str
+    destination: str
+    test: str
+    expected: Literal["Allowed", "Blocked"]
 
 
 @app.post("/api/plan")
 def plan(body: PlanIn):
     try:
-        return vlsm(body.block, body.vlans, body.growth)
+        return vlsm(body.block, [v.model_dump() for v in body.vlans], body.growth)
     except ValueError as e:
         raise HTTPException(400, str(e))
 
@@ -87,7 +102,7 @@ def config_json(device: str):
 
 @app.post("/api/acl/check")
 def acl_check(flow: FlowIn):
-    return check(flow.src, flow.dst, flow.proto, flow.port, flow.established)
+    return check(str(flow.src), str(flow.dst), flow.proto, flow.port, flow.established)
 
 
 @app.get("/api/tests")
@@ -97,7 +112,8 @@ def list_tests():
 
 
 @app.post("/api/tests")
-def add_test(t: TestResult):
+def add_test(body: TestCreate):
+    t = TestResult(**body.model_dump())
     with Session(engine) as s:
         s.add(t)
         s.commit()
@@ -114,12 +130,14 @@ def seed_tests():
 
 
 @app.patch("/api/tests/{test_id}")
-def update_test(test_id: int, observed: str, screenshot: str = ""):
+def update_test(test_id: int, observed: str, screenshot: str | None = None):
     with Session(engine) as s:
         t = s.get(TestResult, test_id)
         if not t:
             raise HTTPException(404, "test not found")
-        t.observed, t.screenshot = observed, screenshot
+        t.observed = observed
+        if screenshot is not None:      # omitted keeps the stored value; "" clears it
+            t.screenshot = screenshot
         s.add(t)
         s.commit()
         s.refresh(t)
@@ -133,4 +151,6 @@ def export_tests():
     w.writerow(["id", "source", "destination", "test", "expected", "observed", "screenshot"])
     for t in list_tests():
         w.writerow([t.id, t.source, t.destination, t.test, t.expected, t.observed, t.screenshot])
-    return buf.getvalue()
+    return PlainTextResponse(
+        buf.getvalue(),
+        headers={"Content-Disposition": 'attachment; filename="banknet_tests.csv"'})
