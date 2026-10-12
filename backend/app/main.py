@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 
 from .acl import check
+from .configgen import list_devices, render
 from .vlsm import vlsm
 
 engine = create_engine(os.environ.get("BANKNET_DB_URL", "sqlite:///banknet.db"))
@@ -64,6 +65,32 @@ def plan(body: PlanIn):
         return vlsm(body.block, body.vlans, body.growth)
     except ValueError as e:
         raise HTTPException(400, str(e))
+
+
+def _config(device: str) -> tuple[str, str]:
+    try:
+        return device.upper(), render(device)
+    except KeyError:
+        raise HTTPException(404, f"unknown device {device}")
+
+
+@app.get("/api/config")
+def config_devices():
+    return {"devices": list_devices()}
+
+
+# Declared before /api/config/{device}, which would otherwise match "R1.txt".
+@app.get("/api/config/{device}.txt", response_class=PlainTextResponse)
+def config_download(device: str):
+    name, text = _config(device)
+    return PlainTextResponse(
+        text, headers={"Content-Disposition": f'attachment; filename="{name}.txt"'})
+
+
+@app.get("/api/config/{device}")
+def config_json(device: str):
+    name, text = _config(device)
+    return {"device": name, "config": text}
 
 
 @app.post("/api/acl/check")

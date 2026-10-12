@@ -1,0 +1,35 @@
+{% extends "base.j2" %}
+{% import "macros.j2" as m with context %}
+{% block body %}
+!
+{% for v in vlans %}
+vlan {{ v.id }}
+ name {{ v.name }}
+{% endfor %}
+!
+{% if d.router_uplink %}
+interface {{ d.router_uplink.port }}
+ description {{ d.router_uplink.description }}
+{{ m.trunk() }} switchport nonegotiate
+!
+{% endif %}
+interface range {{ etherchannel.ports }}
+ description EtherChannel to {{ d.etherchannel_peer }}
+{{ m.trunk() }} channel-group {{ etherchannel.group }} mode {{ etherchannel.mode }}
+interface Port-channel{{ etherchannel.group }}
+{{ m.trunk() }} switchport nonegotiate
+!
+{% for section in d.access_sections %}
+{% for p in section %}{{ m.access(p) }}{% endfor %}
+!
+{% endfor %}
+{% for p in d.unused_ports %}{{ m.access(p) }}{% endfor %}
+!
+interface Vlan1
+ shutdown
+interface Vlan{{ mgmt_vlan.id }}
+ ip address {{ d.svi_ip }} {{ mgmt_vlan.mask }}
+ no shutdown
+ip default-gateway {{ mgmt_vlan.gateway }}
+!
+{% endblock %}
