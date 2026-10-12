@@ -7,10 +7,12 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
-from sqlmodel import Field, Session, SQLModel, create_engine, select
+from sqlmodel import Session, SQLModel, create_engine, func, select
 
 from .acl import check
 from .configgen import list_devices, render
+from .models import TestResult
+from .seed import seed
 from .vlsm import vlsm
 
 engine = create_engine(os.environ.get("BANKNET_DB_URL", "sqlite:///banknet.db"))
@@ -47,16 +49,6 @@ class FlowIn(BaseModel):
     proto: str          # tcp | udp | icmp | icmp-reply
     port: int | None = None
     established: bool = False
-
-
-class TestResult(SQLModel, table=True):
-    id: int | None = Field(default=None, primary_key=True)
-    source: str
-    destination: str
-    test: str
-    expected: str
-    observed: str = ""
-    screenshot: str = ""
 
 
 @app.post("/api/plan")
@@ -111,6 +103,14 @@ def add_test(t: TestResult):
         s.commit()
         s.refresh(t)
         return t
+
+
+@app.post("/api/tests/seed")
+def seed_tests():
+    with Session(engine) as s:
+        inserted = seed(s)
+        total = s.exec(select(func.count()).select_from(TestResult)).one()
+        return {"inserted": inserted, "total": total}
 
 
 @app.patch("/api/tests/{test_id}")
