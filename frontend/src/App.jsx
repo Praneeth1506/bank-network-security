@@ -1,134 +1,249 @@
-
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
+import Plan from "./pages/Plan.jsx";
+import PolicyChecker from "./pages/PolicyChecker.jsx";
+import Tests from "./pages/Tests.jsx";
 
 const navigation = [
-  { id: "dashboard", label: "Dashboard", icon: "◫" },
-  { id: "policy", label: "ACL Policy", icon: "⬡" },
+  { id: "dashboard", label: "Dashboard", icon: "◉" },
+  { id: "plan", label: "Network Plan", icon: "⌘" },
+  { id: "policy", label: "ACL Policy", icon: "⇄" },
   { id: "tests", label: "Security Tests", icon: "✓" },
-  { id: "configs", label: "Device Configs", icon: "⌘" },
+  { id: "configs", label: "Device Configs", icon: "▤" },
 ];
 
-function Dashboard() {
+function Dashboard({ setActivePage }) {
   return (
     <>
       <div className="page-heading">
         <div>
           <p className="eyebrow">NETWORK OPERATIONS / OVERVIEW</p>
           <h1>Security Dashboard</h1>
-          <p className="muted">Monitor access control and network security.</p>
+          <p className="muted">
+            Manage network addressing, access control, security tests, and
+            device configurations.
+          </p>
         </div>
+
         <div className="system-status">
-          <span className="status-dot" /> Dashboard online
+          <span className="status-dot" />
+          Backend integration
         </div>
       </div>
 
       <section className="metrics">
-        <article className="metric-card">
-          <p>Security policies</p>
-          <h2>—</h2>
-          <span>Awaiting network rules</span>
-        </article>
-        <article className="metric-card">
-          <p>Tests executed</p>
-          <h2>0</h2>
-          <span>Test results not connected</span>
-        </article>
-        <article className="metric-card">
-          <p>Devices configured</p>
-          <h2>—</h2>
-          <span>Awaiting device API</span>
-        </article>
-        <article className="metric-card">
-          <p>Policy engine</p>
-          <h2 className="accent-text">READY</h2>
-          <span>Basic evaluator implemented</span>
-        </article>
+        {[
+          {
+            title: "Network Plan",
+            value: "VLSM",
+            detail: "View the bank network addressing plan",
+            page: "plan",
+          },
+          {
+            title: "Access Control",
+            value: "ACL",
+            detail: "Check whether network traffic is permitted",
+            page: "policy",
+          },
+          {
+            title: "Security Tests",
+            value: "TEST",
+            detail: "Record and review test outcomes",
+            page: "tests",
+          },
+          {
+            title: "Device Configs",
+            value: "3",
+            detail: "R1, SW1, and SW2",
+            page: "configs",
+          },
+        ].map((item) => (
+          <button
+            className="metric-card dashboard-link"
+            key={item.page}
+            onClick={() => setActivePage(item.page)}
+          >
+            <p>{item.title}</p>
+            <h2 className="accent-text">{item.value}</h2>
+            <span>{item.detail}</span>
+          </button>
+        ))}
       </section>
 
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">PROJECT STATUS</p>
-            <h2>Security components</h2>
+            <p className="eyebrow">WORKSPACE</p>
+            <h2>Network Security Components</h2>
           </div>
-          <span className="tag">DEVELOPMENT</span>
+          <span className="tag">LOCAL ENVIRONMENT</span>
         </div>
 
         {[
-          ["ACL policy engine", "Implemented", "complete"],
-          ["Automated ACL tests", "3 tests passing", "complete"],
-          ["Cisco device configurations", "Awaiting backend API", "pending"],
-          ["Packet Tracer verification", "Pending network setup", "pending"],
-        ].map(([name, status, type]) => (
-          <div className="status-row" key={name}>
-            <div className={`status-icon ${type}`}>
-              {type === "complete" ? "✓" : "·"}
-            </div>
-            <span>{name}</span>
-            <span className={`status-label ${type}`}>{status}</span>
-          </div>
+          ["Network addressing plan", "View VLANs, gateways, and subnets", "plan"],
+          ["ACL policy checker", "Test permit and deny decisions", "policy"],
+          ["Security test tracker", "Record observed test results", "tests"],
+          ["Device configurations", "Inspect router and switch configurations", "configs"],
+        ].map(([name, description, page]) => (
+          <button
+            className="status-row dashboard-row"
+            key={page}
+            onClick={() => setActivePage(page)}
+          >
+            <span className="status-icon complete">✓</span>
+            <span className="dashboard-row-text">
+              <strong>{name}</strong>
+              <small>{description}</small>
+            </span>
+            <span className="status-label complete">OPEN →</span>
+          </button>
         ))}
-      </section>
-
-      <section className="notice">
-        <span className="notice-icon">i</span>
-        <div>
-          <strong>Backend integration pending</strong>
-          <p>
-            This dashboard currently displays development status. Live network
-            metrics and ACL results will appear after the backend is connected.
-          </p>
-        </div>
       </section>
     </>
   );
 }
 
+function DeviceConfigs() {
+  const [devices, setDevices] = useState([]);
+  const [selected, setSelected] = useState("R1");
+  const [config, setConfig] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function loadDevices() {
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch("http://localhost:8000/api/config");
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+      }
+
+      const data = await response.json();
+      const names = Object.keys(data.devices ?? {});
+      setDevices(names);
+
+      const device = names.includes(selected) ? selected : names[0];
+      if (device) {
+        setSelected(device);
+        await loadConfig(device);
+      }
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadConfig(device) {
+    setError("");
+    setConfig(null);
+
+    try {
+      const response = await fetch(
+        `http://localhost:8000/api/config/${encodeURIComponent(device)}`
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+      }
+
+      setConfig(await response.json());
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  useEffect(() => {
+    loadDevices();
+  }, []);
+
+  return (
+    <section className="panel">
+      <p className="eyebrow">NETWORK / CONFIGURATION</p>
+      <h1>Device Configurations</h1>
+      <p className="muted">
+        Inspect the configurations generated for the bank network devices.
+      </p>
+
+      {error && <p className="error-message">{error}</p>}
+      {loading && <p className="muted">Loading devices...</p>}
+
+      <div className="config-controls">
+        {devices.map((device) => (
+          <button
+            key={device}
+            className={`action-button ${selected === device ? "selected" : ""}`}
+            onClick={() => {
+              setSelected(device);
+              loadConfig(device);
+            }}
+          >
+            {device}
+          </button>
+        ))}
+
+        {selected && (
+          <a
+            className="action-button"
+            href={`http://localhost:8000/api/config/${encodeURIComponent(selected)}.txt`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Download {selected} .txt
+          </a>
+        )}
+      </div>
+
+      {config && (
+        <pre className="config-output">
+          {JSON.stringify(config, null, 2)}
+        </pre>
+      )}
+    </section>
+  );
+}
+
 function PlaceholderPage({ page }) {
   const details = {
-    policy: {
-      title: "ACL Policy",
-      description:
-        "Review KIOSK_IN and TELLER_IN rules and their expected packet decisions.",
-      note: "Actual network rules will be added after the addressing plan is confirmed.",
-    },
-    tests: {
-      title: "Security Tests",
-      description:
-        "Review permit and deny scenarios for your bank network.",
-      note: "The three passing Python unit tests verify the basic policy engine only.",
-    },
-    configs: {
-      title: "Device Configurations",
-      description:
-        "Inspect generated configurations for R1, SW1, and SW2.",
-      note: "Configuration data will appear when Person A's API is available.",
+    unknown: {
+      title: "Page Not Found",
+      description: "Select a page from the navigation menu.",
     },
   };
 
-  const item = details[page];
+  const item = details[page] ?? details.unknown;
 
   return (
     <section className="panel placeholder">
-      <p className="eyebrow">SECURITY / {page.toUpperCase()}</p>
+      <p className="eyebrow">SECURITY / WORKSPACE</p>
       <h1>{item.title}</h1>
       <p className="muted">{item.description}</p>
-      <div className="notice">
-        <span className="notice-icon">i</span>
-        <div>
-          <strong>Integration pending</strong>
-          <p>{item.note}</p>
-        </div>
-      </div>
     </section>
   );
 }
 
 export default function App() {
   const [activePage, setActivePage] = useState("dashboard");
-
   const activeItem = navigation.find((item) => item.id === activePage);
+
+  function renderPage() {
+    switch (activePage) {
+      case "dashboard":
+        return <Dashboard setActivePage={setActivePage} />;
+      case "plan":
+        return <Plan />;
+      case "policy":
+        return <PolicyChecker />;
+      case "tests":
+        return <Tests />;
+      case "configs":
+        return <DeviceConfigs />;
+      default:
+        return <PlaceholderPage page={activePage} />;
+    }
+  }
 
   return (
     <div className="app-shell">
@@ -142,13 +257,12 @@ export default function App() {
         </div>
 
         <p className="nav-heading">WORKSPACE</p>
+
         <nav>
           {navigation.map((item) => (
             <button
               key={item.id}
-              className={`nav-item ${
-                activePage === item.id ? "active" : ""
-              }`}
+              className={`nav-item ${activePage === item.id ? "active" : ""}`}
               onClick={() => setActivePage(item.id)}
             >
               <span className="nav-icon">{item.icon}</span>
@@ -172,17 +286,14 @@ export default function App() {
 
       <main className="main-content">
         <header className="topbar">
-          <span>Workspace <span className="crumb">/</span> {activeItem.label}</span>
+          <span>
+            Workspace <span className="crumb">/</span>{" "}
+            {activeItem?.label ?? "Page"}
+          </span>
           <span className="environment-badge">LOCAL ENVIRONMENT</span>
         </header>
 
-        <div className="page-content">
-          {activePage === "dashboard" ? (
-            <Dashboard />
-          ) : (
-            <PlaceholderPage page={activePage} />
-          )}
-        </div>
+        <div className="page-content">{renderPage()}</div>
       </main>
     </div>
   );

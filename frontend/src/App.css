@@ -504,3 +504,199 @@ h1 {
     line-height: 1.5;
   }
 }
+
+/* Dashboard navigation cards */
+.dashboard-link {
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 150ms ease, transform 150ms ease;
+}
+
+.dashboard-link:hover {
+  border-color: #b9f56a;
+  transform: translateY(-2px);
+}
+
+.dashboard-row {
+  width: 100%;
+  padding: 12px 0;
+  color: #e5e7eb;
+  background: transparent;
+  border: 0;
+  border-top: 1px solid #232a34;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dashboard-row:hover {
+  background: #141b23;
+}
+
+.dashboard-row-text {
+  display: grid;
+  gap: 5px;
+}
+
+.dashboard-row-text strong {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.dashboard-row-text small {
+  color: #8d98a8;
+  font-size: 10px;
+}
+
+.error-message {
+  color: #ff9292;
+  background: #2a171b;
+  border: 1px solid #5b292f;
+  border-radius: 7px;
+  padding: 12px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+/* Shared styles for the API-connected pages */
+.page-content section > h2 {
+  margin: 0 0 18px;
+  font-size: 20px;
+}
+
+.page-content section > h1 {
+  margin-bottom: 10px;
+}
+
+.page-content table {
+  width: 100%;
+  margin-top: 20px;
+  border-collapse: collapse;
+  color: #dce3ed;
+  font-size: 11px;
+}
+
+.page-content th {
+  background: #171e27;
+  color: #b9f56a;
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.page-content th,
+.page-content td {
+  padding: 10px;
+  border: 1px solid #303946;
+}
+
+.page-content td {
+  overflow-wrap: anywhere;
+}
+
+.page-content tbody tr:nth-child(even) {
+  background: #121821;
+}
+
+.page-content input,
+.page-content select,
+.page-content textarea {
+  max-width: 100%;
+  margin: 5px 4px 10px 0;
+  padding: 9px 10px;
+  color: #e5e7eb;
+  background: #111821;
+  border: 1px solid #35404e;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 12px;
+}
+
+.page-content input:focus,
+.page-content select:focus,
+.page-content textarea:focus {
+  outline: 1px solid #b9f56a;
+  border-color: #b9f56a;
+}
+
+.page-content label {
+  color: #cbd5e1;
+  font-size: 12px;
+}
+
+.page-content input[type="checkbox"] {
+  accent-color: #b9f56a;
+  vertical-align: middle;
+}
+
+.page-content button:not(.nav-item):not(.metric-card):not(.dashboard-row) {
+  margin: 4px 5px 4px 0;
+  padding: 9px 12px;
+  color: #dce3ed;
+  background: #1b2520;
+  border: 1px solid #354b35;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.page-content button:not(.nav-item):not(.metric-card):not(.dashboard-row):hover {
+  background: #29382a;
+  border-color: #b9f56a;
+}
+
+.config-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 20px 0;
+}
+
+.page-content .action-button {
+  display: inline-block;
+  padding: 9px 12px;
+  color: #dce3ed;
+  background: #1b2520;
+  border: 1px solid #354b35;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.page-content .action-button.selected {
+  color: #c7f58d;
+  border-color: #b9f56a;
+  background: #202d20;
+}
+
+.config-output {
+  max-width: 100%;
+  overflow: auto;
+  padding: 18px;
+  color: #c7f58d;
+  background: #080b10;
+  border: 1px solid #303946;
+  border-radius: 8px;
+  font-family: "DM Mono", monospace;
+  font-size: 11px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 700px) {
+  .page-content table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .dashboard-row-text small {
+    white-space: normal;
+  }
+}
