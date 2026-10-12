@@ -1,5 +1,6 @@
 import csv
 import io
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
@@ -11,7 +12,7 @@ from sqlmodel import Field, Session, SQLModel, create_engine, select
 from .acl import check
 from .vlsm import vlsm
 
-engine = create_engine("sqlite:///banknet.db")
+engine = create_engine(os.environ.get("BANKNET_DB_URL", "sqlite:///banknet.db"))
 
 
 @asynccontextmanager
