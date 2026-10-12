@@ -1,0 +1,24 @@
+enable
+configure terminal
+hostname {{ d.hostname }}
+no ip domain-lookup
+enable secret {{ common.enable_secret }}
+service password-encryption
+banner motd #{{ common.banner }}#
+username {{ common.admin_user }} privilege {{ common.admin_privilege }} secret {{ common.admin_secret }}
+ip domain-name {{ common.domain_name }}
+crypto key generate rsa general-keys modulus {{ common.rsa_modulus }}
+ip ssh version 2
+{% block body %}{% endblock %}
+access-list {{ mgmt_acl.number }} permit {{ mgmt_acl.vlan.network }} {{ mgmt_acl.vlan.wildcard }}
+line vty 0 15
+ access-class {{ mgmt_acl.number }} in
+ transport input ssh
+ login local
+ exec-timeout {{ common.exec_timeout }}
+line console 0
+ password {{ common.console_password }}
+ login
+{% block console_extra %}{% endblock %}
+end
+copy running-config startup-config

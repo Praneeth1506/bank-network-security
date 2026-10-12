@@ -1,0 +1,43 @@
+{% extends "base.j2" %}
+{% block body %}
+ip ssh time-out {{ d.ssh_timeout }}
+ip ssh authentication-retries {{ d.ssh_retries }}
+!
+interface {{ d.trunk_port }}
+ description {{ d.trunk_description }}
+ no ip address
+ no shutdown
+{% for v in routed_vlans %}
+interface {{ d.trunk_port }}.{{ v.id }}
+ description {{ v.name }}
+ encapsulation dot1Q {{ v.id }}
+ ip address {{ v.gateway }} {{ v.mask }}
+{% endfor %}
+{% for port in d.unused_ports %}
+interface {{ port }}
+ shutdown
+{% endfor %}
+!
+{% for pool in dhcp_pools %}
+ip dhcp excluded-address {{ pool.excluded[0] }} {{ pool.excluded[1] }}
+ip dhcp pool {{ pool.name }}
+ network {{ pool.vlan.network }} {{ pool.vlan.mask }}
+ default-router {{ pool.vlan.gateway }}
+!
+{% endfor %}
+{% for acl in acls %}
+ip access-list extended {{ acl.name }}
+{% for line in acl.lines %}
+ {{ line }}
+{% endfor %}
+!
+{% endfor %}
+{% for acl in acls %}
+interface {{ d.trunk_port }}.{{ acl.vlan.id }}
+ ip access-group {{ acl.name }} in
+{% endfor %}
+!
+{% endblock %}
+{% block console_extra %}
+ logging synchronous
+{% endblock %}

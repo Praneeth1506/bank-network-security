@@ -1,0 +1,29 @@
+{# Trunk settings shared by the R1 uplink, the EtherChannel members and Port-channel. #}
+{# Output ends with a newline, so callers append the next line directly after the call. #}
+{% macro trunk() %}
+ switchport mode trunk
+ switchport trunk native vlan {{ trunk_native_vlan }}
+ switchport trunk allowed vlan {{ trunk_allowed_vlans|join(",") }}
+{% endmacro %}
+
+{% macro access(p) %}
+{{ p.interface }}
+ description {{ p.description }}
+ switchport mode access
+ switchport access vlan {{ p.vlan }}
+{% if p.port_security %}
+ switchport port-security
+ switchport port-security maximum {{ port_security.maximum }}
+ switchport port-security mac-address sticky
+ switchport port-security violation {{ port_security.violation }}
+{% endif %}
+{% if p.portfast %}
+ spanning-tree portfast
+{% endif %}
+{% if p.bpduguard %}
+ spanning-tree bpduguard enable
+{% endif %}
+{% if p.shutdown %}
+ shutdown
+{% endif %}
+{% endmacro %}
