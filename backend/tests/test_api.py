@@ -58,6 +58,13 @@ def test_create_test_rejects_bad_body(client, body):
     assert client.get("/api/tests").json() == []
 
 
+@pytest.mark.parametrize("field", ["source", "destination", "test"])
+@pytest.mark.parametrize("value", ["", "   "])
+def test_create_test_rejects_empty_field(client, field, value):
+    assert client.post("/api/tests", json={**ROW, field: value}).status_code == 422
+    assert client.get("/api/tests").json() == []
+
+
 def test_patch_without_screenshot_keeps_it(client):
     tid = client.post("/api/tests", json=ROW).json()["id"]
     client.patch(f"/api/tests/{tid}", params={"observed": "Allowed", "screenshot": "t4.png"})

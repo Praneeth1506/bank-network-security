@@ -3,12 +3,12 @@ import io
 import os
 from contextlib import asynccontextmanager
 from ipaddress import IPv4Address
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 from sqlmodel import Session, SQLModel, create_engine, func, select
 
 from .acl import check
@@ -59,10 +59,13 @@ class FlowIn(BaseModel):
     established: bool = False
 
 
+NonEmptyStr = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+
+
 class TestCreate(BaseModel):
-    source: str
-    destination: str
-    test: str
+    source: NonEmptyStr
+    destination: NonEmptyStr
+    test: NonEmptyStr
     expected: Literal["Allowed", "Blocked"]
 
 

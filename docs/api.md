@@ -199,12 +199,14 @@ Adds one test row.
 
 | Field | Type | Required |
 |-------|------|----------|
-| `source` | string | yes |
-| `destination` | string | yes |
-| `test` | string | yes |
+| `source` | string, non-empty | yes |
+| `destination` | string, non-empty | yes |
+| `test` | string, non-empty | yes |
 | `expected` | `"Allowed"` or `"Blocked"` (exact case) | yes |
 
-Any other fields (including `id`, `observed`, `screenshot`) are ignored; new
+`source`, `destination` and `test` are stored with leading and trailing
+whitespace removed, so `" KIOSK1 "` is saved as `"KIOSK1"`; a value that is empty
+or only whitespace is rejected. Any other fields (including `id`, `observed`, `screenshot`) are ignored; new
 rows always start with `observed` and `screenshot` set to `""`.
 
 **200**: the stored row with its new `id`. Request
@@ -226,23 +228,26 @@ rows always start with `observed` and `screenshot` set to `""`.
 
 | Code | When |
 |------|------|
-| 422 | A required field is missing, or `expected` is not `"Allowed"` / `"Blocked"` |
+| 422 | A required field is missing; `source`, `destination` or `test` is empty or only whitespace; or `expected` is not `"Allowed"` / `"Blocked"` |
 
-422 example, request with `"expected": "Maybe"`:
+422 example, request with `"source": "   "`:
 
 ```json
 {
   "detail": [
     {
-      "type": "literal_error",
-      "loc": ["body", "expected"],
-      "msg": "Input should be 'Allowed' or 'Blocked'",
-      "input": "Maybe",
-      "ctx": {"expected": "'Allowed' or 'Blocked'"}
+      "type": "string_too_short",
+      "loc": ["body", "source"],
+      "msg": "String should have at least 1 character",
+      "input": "   ",
+      "ctx": {"min_length": 1}
     }
   ]
 }
 ```
+
+With `"expected": "Maybe"` the error is `"type": "literal_error"`, `"loc": ["body", "expected"]`,
+`"msg": "Input should be 'Allowed' or 'Blocked'"`.
 
 ---
 
