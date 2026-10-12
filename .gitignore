@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# Node
+node_modules/
+dist/
+
+# Local databases and generated output
+*.db
+*.sqlite3
+*.csv
+*.log
+
+# Editors and operating systems
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Packet Tracer working copies can be large.
+# Keep final deliverables intentionally; don't commit temporary copies.
+packet-tracer/*_working.pkt
